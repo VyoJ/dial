@@ -4,7 +4,26 @@ A Python library for procedural and declarative generation of analog clock faces
 
 ## Quick Start
 
-### Human-Friendly Interface (Simple)
+### Command Line Interface
+
+```bash
+# Install the library
+uv add dial
+
+# Create a simple clock
+dial create "3:15:30" my_clock.png --style classic
+
+# Generate example clocks
+dial example examples/
+
+# List available styles
+dial styles
+
+# Use JSON configuration
+dial config config.json output.png
+```
+
+### Python Interface (Simple)
 
 ```python
 import dial
@@ -14,7 +33,7 @@ clock = dial.Clock.create("3:15:30", "classic")
 clock.save("my_clock.png")
 ```
 
-### Agent-Friendly Interface (Full Control)
+### Python Interface (Full Control)
 
 ```python
 import dial
@@ -34,17 +53,19 @@ clock.save("custom_clock.png")
 
 ## Features
 
+- **Command Line Tool**: Easy-to-use CLI with typer for quick clock generation
 - **Dual Interface**: Simple presets for humans, full configuration for AI agents
 - **High Quality**: Built-in antialiasing and supersampling
 - **Compositional**: Layer-based architecture with customizable elements
 - **Accurate**: Precise hand positioning with smooth movement
 - **Flexible**: Support for gradients, custom fonts, multiple numeral systems
+- **Complex Designs**: Multi-dial chronographs, 24-hour displays, date windows
 
 ## Available Preset Styles
 
-- `classic` - Traditional black-on-white design
-- `modern` - Dark theme with contemporary styling
-- `minimal` - Clean, simplified appearance
+- `classic` - Traditional black-on-white design with Arabic numerals
+- `modern` - Dark theme with contemporary styling and selective numerals
+- `minimal` - Clean, simplified appearance with corner numerals only
 
 ## Installation
 
@@ -56,16 +77,45 @@ uv add dial
 pip install dial
 ```
 
+## CLI Commands
+
+```bash
+# Create a single clock
+dial create "3:15:30" output.png --style classic --quality 4
+
+# Generate all example clocks
+dial example examples/
+
+# List available preset styles
+dial styles
+
+# Create from JSON configuration
+dial config config.json output.png
+```
+
+## Example Gallery
+
+The library can create a wide variety of clock designs:
+
+- **Classic Designs**: Traditional analog clocks with Arabic or Roman numerals
+- **Modern Styles**: Contemporary dark themes with selective numbering
+- **Chronographs**: Multi-dial watches with sub-complications
+- **Specialty Clocks**: 24-hour displays, gradient faces, date windows
+- **Custom Elements**: Overlay text, custom hands, artistic gradients
+
+See the `examples/` folder for sample outputs and the `docs/` folder for complete usage documentation.
+
 ## Documentation
 
-- [Complete Usage Guide](USAGE.md) - Detailed examples and API reference
+- [Complete Usage Guide](docs/) - Detailed examples and API reference
 - [Architecture Guide](AGENTS.md) - Design philosophy and LLM integration
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.12+
 - Pillow (PIL)
-- NumPy
+- NumPy  
+- Typer (for CLI)
 
 ## License
 
