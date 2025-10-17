@@ -18,6 +18,11 @@ class Ticks(Element):
 
     def _validate_properties(self) -> None:
         """Validate Ticks element properties."""
+        # Validate divisions
+        divisions = self.get_property("divisions", 12)
+        if not isinstance(divisions, int) or divisions <= 0:
+            raise ValueError("divisions must be a positive integer")
+
         # Validate hour_spec
         hour_spec = self.get_property("hour_spec", {})
         if hour_spec:
@@ -28,14 +33,22 @@ class Ticks(Element):
         if minute_spec:
             self._validate_tick_spec(minute_spec, "minute_spec")
 
-        # Validate visible hours
+        # Validate tick_spec array (new flexible format)
+        tick_spec = self.get_property("tick_spec")
+        if tick_spec is not None:
+            if not isinstance(tick_spec, list):
+                raise ValueError("tick_spec must be a list")
+            for spec in tick_spec:
+                self._validate_tick_spec(spec, "tick_spec")
+
+        # Validate visible hours - now accepts any integers
         visible_hours = self.get_property("visible_hours")
         if visible_hours is not None:
             if not isinstance(visible_hours, list):
                 raise ValueError("visible_hours must be a list")
             for hour in visible_hours:
-                if not isinstance(hour, int) or hour < 1 or hour > 12:
-                    raise ValueError("visible_hours must contain integers from 1 to 12")
+                if not isinstance(hour, int):
+                    raise ValueError("visible_hours must contain integers")
 
         # Validate visible minutes
         visible_minutes = self.get_property("visible_minutes")
@@ -43,10 +56,8 @@ class Ticks(Element):
             if not isinstance(visible_minutes, list):
                 raise ValueError("visible_minutes must be a list")
             for minute in visible_minutes:
-                if not isinstance(minute, int) or minute < 0 or minute > 59:
-                    raise ValueError(
-                        "visible_minutes must contain integers from 0 to 59"
-                    )
+                if not isinstance(minute, int):
+                    raise ValueError("visible_minutes must contain integers")
 
         # Validate rotation
         rotation = self.get_property("rotation", 0)
@@ -83,32 +94,97 @@ class Ticks(Element):
         draw: ImageDraw.ImageDraw,
         center: Tuple[float, float],
         radius: float,
+        scale_factor: float = 1.0,
     ) -> None:
         """Draw the tick marks.
 
         Args:
             image: The PIL Image to draw on.
             draw: The PIL ImageDraw object for drawing operations.
-            center: The (x, y) center point of the clock face.
-            radius: The radius of the clock face.
+            center: The (x, y) center point of the clock face (already scaled).
+            radius: The radius of the clock face (already scaled).
+            scale_factor: Scale factor for custom element positioning.
         """
+        # Use element's own center and radius if specified
+        element_center = self.get_center(center, scale_factor)
+        element_radius = self.get_radius(radius, scale_factor)
+
         rotation = self.get_property("rotation", 0)
+        divisions = self.get_property("divisions", 12)
 
-        # Draw hour ticks
-        hour_spec = self.get_property("hour_spec")
-        if hour_spec:
-            visible_hours = self.get_property("visible_hours", list(range(1, 13)))
-            self._draw_hour_ticks(
-                draw, center, radius, hour_spec, visible_hours, rotation
+        # Check for new flexible tick_spec format
+        tick_spec = self.get_property("tick_spec")
+        if tick_spec:
+            self._draw_flexible_ticks(
+                draw, element_center, element_radius, tick_spec, divisions, rotation
             )
+        else:
+            # Legacy format: hour_spec and minute_spec
+            # Draw hour ticks
+            hour_spec = self.get_property("hour_spec")
+            if hour_spec:
+                visible_hours = self.get_property(
+                    "visible_hours", list(range(1, divisions + 1))
+                )
+                self._draw_hour_ticks(
+                    draw,
+                    element_center,
+                    element_radius,
+                    hour_spec,
+                    visible_hours,
+                    rotation,
+                    divisions,
+                )
 
-        # Draw minute ticks
-        minute_spec = self.get_property("minute_spec")
-        if minute_spec:
-            visible_minutes = self.get_property("visible_minutes", list(range(0, 60)))
-            self._draw_minute_ticks(
-                draw, center, radius, minute_spec, visible_minutes, rotation
-            )
+            # Draw minute ticks
+            minute_spec = self.get_property("minute_spec")
+            if minute_spec:
+                visible_minutes = self.get_property(
+                    "visible_minutes", list(range(0, 60))
+                )
+                self._draw_minute_ticks(
+                    draw,
+                    element_center,
+                    element_radius,
+                    minute_spec,
+                    visible_minutes,
+                    rotation,
+                )
+
+    def _draw_flexible_ticks(
+        self,
+        draw: ImageDraw.ImageDraw,
+        center: Tuple[float, float],
+        radius: float,
+        tick_specs: List[Dict[str, Any]],
+        divisions: int,
+        rotation: float,
+    ) -> None:
+        """Draw ticks using flexible tick_spec format."""
+        for spec in tick_specs:
+            indices = spec.get("indices", [])
+            if indices == "all":
+                indices = list(range(divisions))
+            elif indices == "all_others":
+                # Will be handled after other specs
+                continue
+
+            shape = spec.get("shape", "line")
+            color = parse_color(spec.get("color", "black"))
+            length = spec.get("length", 0.1) * radius
+            width = spec.get("width", 2)
+
+            for idx in indices:
+                angle = (360 / divisions) * idx + rotation
+
+                if shape == "line":
+                    self._draw_line_tick(
+                        draw, center, radius, angle, length, width, color
+                    )
+                elif shape == "circle":
+                    self._draw_circle_tick(
+                        draw, center, radius, angle, length, width, color
+                    )
 
     def _draw_hour_ticks(
         self,
@@ -118,6 +194,7 @@ class Ticks(Element):
         spec: Dict[str, Any],
         visible_hours: List[int],
         rotation: float,
+        divisions: int = 12,
     ) -> None:
         """Draw hour tick marks."""
         shape = spec.get("shape", "line")
@@ -126,8 +203,8 @@ class Ticks(Element):
         width = spec.get("width", 2)
 
         for hour in visible_hours:
-            # Convert hour to angle (12 = 0°, 1 = 30°, 2 = 60°, etc.)
-            angle = ((hour % 12) * 30) + rotation  # 360/12 = 30 degrees per hour
+            # Convert hour to angle based on divisions
+            angle = ((hour % divisions) * (360 / divisions)) + rotation
 
             if shape == "line":
                 self._draw_line_tick(draw, center, radius, angle, length, width, color)

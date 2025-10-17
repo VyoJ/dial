@@ -29,6 +29,11 @@ class Hands(Element):
         if time_str is not None:
             validate_time_format(time_str)
 
+        # Validate mode
+        mode = self.get_property("mode", "12h")
+        if mode not in ["12h", "24h"]:
+            raise ValueError("mode must be '12h' or '24h'")
+
         # Validate hand specifications
         hour_spec = self.get_property("hour_spec")
         if hour_spec:
@@ -46,6 +51,16 @@ class Hands(Element):
         pivot_spec = self.get_property("pivot_spec")
         if pivot_spec:
             self._validate_pivot_spec(pivot_spec)
+
+        # Validate hands array (new flexible format)
+        hands = self.get_property("hands")
+        if hands is not None:
+            if not isinstance(hands, list):
+                raise ValueError("hands must be a list")
+            for hand in hands:
+                if not isinstance(hand, dict):
+                    raise ValueError("each hand must be a dictionary")
+                self._validate_hand_spec(hand, "hand")
 
     def _validate_hand_spec(self, spec: Dict[str, Any], spec_name: str) -> None:
         """Validate a hand specification dictionary."""
@@ -114,39 +129,87 @@ class Hands(Element):
         draw: ImageDraw.ImageDraw,
         center: Tuple[float, float],
         radius: float,
+        scale_factor: float = 1.0,
     ) -> None:
         """Draw the clock hands.
 
         Args:
             image: The PIL Image to draw on.
             draw: The PIL ImageDraw object for drawing operations.
-            center: The (x, y) center point of the clock face.
-            radius: The radius of the clock face.
+            center: The (x, y) center point of the clock face (already scaled).
+            radius: The radius of the clock face (already scaled).
+            scale_factor: Scale factor for custom element positioning.
         """
+        # Use element's own center and radius if specified
+        element_center = self.get_center(center, scale_factor)
+        element_radius = self.get_radius(radius, scale_factor)
+
         time_str = self.get_property("time", "12:00:00")
+        mode = self.get_property("mode", "12h")
 
         # Parse time
         try:
             hours, minutes, seconds = validate_time_format(time_str)
-            hour_angle, minute_angle, second_angle = time_to_angles(
-                hours, minutes, seconds
-            )
+
+            # For 24h mode, hour hand moves through full 360° in 24 hours
+            if mode == "24h":
+                hour_angle, minute_angle, second_angle = time_to_angles(
+                    hours, minutes, seconds, mode_24h=True
+                )
+            else:
+                hour_angle, minute_angle, second_angle = time_to_angles(
+                    hours, minutes, seconds
+                )
         except ValueError as e:
             print(f"Warning: Invalid time format '{time_str}': {e}")
             hour_angle = minute_angle = second_angle = 0
 
-        # Draw hands in order: hour, minute, second (second on top)
-        hour_spec = self.get_property("hour_spec")
-        if hour_spec:
-            self._draw_hand(draw, center, radius, hour_angle, hour_spec, "hour")
+        # Check for new flexible hands format
+        hands = self.get_property("hands")
+        if hands:
+            for hand in hands:
+                hand_type = hand.get("type", "hour")
+                if hand_type == "hour":
+                    angle = hour_angle
+                elif hand_type == "minute":
+                    angle = minute_angle
+                elif hand_type == "second":
+                    angle = second_angle
+                else:
+                    angle = 0
+                self._draw_hand(
+                    draw, element_center, element_radius, angle, hand, hand_type
+                )
+        else:
+            # Legacy format: hour_spec, minute_spec, second_spec
+            # Draw hands in order: hour, minute, second (second on top)
+            hour_spec = self.get_property("hour_spec")
+            if hour_spec:
+                self._draw_hand(
+                    draw, element_center, element_radius, hour_angle, hour_spec, "hour"
+                )
 
-        minute_spec = self.get_property("minute_spec")
-        if minute_spec:
-            self._draw_hand(draw, center, radius, minute_angle, minute_spec, "minute")
+            minute_spec = self.get_property("minute_spec")
+            if minute_spec:
+                self._draw_hand(
+                    draw,
+                    element_center,
+                    element_radius,
+                    minute_angle,
+                    minute_spec,
+                    "minute",
+                )
 
-        second_spec = self.get_property("second_spec")
-        if second_spec:
-            self._draw_hand(draw, center, radius, second_angle, second_spec, "second")
+            second_spec = self.get_property("second_spec")
+            if second_spec:
+                self._draw_hand(
+                    draw,
+                    element_center,
+                    element_radius,
+                    second_angle,
+                    second_spec,
+                    "second",
+                )
 
         # Draw pivot on top of all hands
         pivot_spec = self.get_property("pivot_spec")

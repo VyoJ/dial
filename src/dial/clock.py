@@ -157,6 +157,7 @@ class Clock:
         background_color: str = "white",
         antialias: bool = True,
         scale_factor: int = 2,
+        post_processing: Dict[str, Any] = None,
     ) -> None:
         """Initialize a new clock canvas.
 
@@ -166,6 +167,7 @@ class Clock:
             background_color: Background color for the canvas.
             antialias: Whether to use antialiasing for better image quality.
             scale_factor: Supersampling scale factor for antialiasing (higher = better quality).
+            post_processing: Post-processing operations (flip, rotate, etc.).
 
         Raises:
             ValueError: If width or height are not positive integers.
@@ -183,6 +185,7 @@ class Clock:
         self.elements: List[Element] = []
         self.antialias = antialias
         self.scale_factor = scale_factor if antialias else 1
+        self.post_processing = post_processing or {}
 
         # Calculate clock center and radius (using actual output dimensions)
         self.center = (width / 2, height / 2)
@@ -313,7 +316,9 @@ class Clock:
 
         for element in sorted_elements:
             try:
-                element.draw(image, draw, render_center, render_radius)
+                element.draw(
+                    image, draw, render_center, render_radius, self.scale_factor
+                )
             except Exception as e:
                 # Continue rendering other elements if one fails
                 print(
@@ -324,9 +329,52 @@ class Clock:
         if self.scale_factor > 1:
             image = image.resize((self.width, self.height), Image.Resampling.LANCZOS)
 
+        # Apply post-processing operations
+        image = self._apply_post_processing(image)
+
         # Convert to requested format
         if format != "RGBA":
             image = image.convert(format)
+
+        return image
+
+    def _apply_post_processing(self, image: Image.Image) -> Image.Image:
+        """Apply post-processing operations to the rendered image.
+
+        Args:
+            image: The rendered PIL Image.
+
+        Returns:
+            The post-processed image.
+        """
+        if not self.post_processing:
+            return image
+
+        # Apply flip operations
+        flip_h = self.post_processing.get("flip_horizontal", False)
+        flip_v = self.post_processing.get("flip_vertical", False)
+
+        if flip_h:
+            image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        if flip_v:
+            image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+
+        # Apply rotation
+        rotation = self.post_processing.get("rotate", 0)
+        if rotation != 0:
+            # Rotate counter-clockwise (PIL convention)
+            image = image.rotate(
+                rotation, expand=False, fillcolor=self.background_color
+            )
+
+        # Apply transpose operations
+        transpose = self.post_processing.get("transpose")
+        if transpose == "90":
+            image = image.transpose(Image.Transpose.ROTATE_90)
+        elif transpose == "180":
+            image = image.transpose(Image.Transpose.ROTATE_180)
+        elif transpose == "270":
+            image = image.transpose(Image.Transpose.ROTATE_270)
 
         return image
 
@@ -406,11 +454,14 @@ class Clock:
         if not isinstance(elements_config, list):
             raise ValueError("Elements must be a list")
 
-        # Create clock instance with optional antialiasing settings
+        # Create clock instance with optional settings
         background_color = config.get("background_color", "white")
         antialias = config.get("antialias", True)
         scale_factor = config.get("scale_factor", 2)
-        clock = cls(width, height, background_color, antialias, scale_factor)
+        post_processing = config.get("post_processing", {})
+        clock = cls(
+            width, height, background_color, antialias, scale_factor, post_processing
+        )
 
         # Create and add elements
         for element_config in elements_config:

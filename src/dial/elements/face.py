@@ -54,16 +54,22 @@ class Face(Element):
         draw: ImageDraw.ImageDraw,
         center: Tuple[float, float],
         radius: float,
+        scale_factor: float = 1.0,
     ) -> None:
         """Draw the face element.
 
         Args:
             image: The PIL Image to draw on.
             draw: The PIL ImageDraw object for drawing operations.
-            center: The (x, y) center point of the clock face.
-            radius: The radius of the clock face.
+            center: The (x, y) center point of the clock face (already scaled).
+            radius: The radius of the clock face (already scaled).
+            scale_factor: Scale factor for custom element positioning.
         """
-        cx, cy = center
+        # Use element's own center and radius if specified
+        element_center = self.get_center(center, scale_factor)
+        element_radius = self.get_radius(radius, scale_factor)
+
+        cx, cy = element_center
         shape = self.get_property("shape", "circle")
         color = self.get_property("color", "white")
         border_color = self.get_property("border_color")
@@ -72,9 +78,19 @@ class Face(Element):
 
         # Calculate shape bounds
         if shape == "circle":
-            bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+            bbox = [
+                cx - element_radius,
+                cy - element_radius,
+                cx + element_radius,
+                cy + element_radius,
+            ]
         elif shape == "square":
-            bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+            bbox = [
+                cx - element_radius,
+                cy - element_radius,
+                cx + element_radius,
+                cy + element_radius,
+            ]
         else:  # rectangle
             # Use full image dimensions for rectangle
             bbox = [0, 0, image.width, image.height]

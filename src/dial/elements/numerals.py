@@ -20,25 +20,34 @@ class Numerals(Element):
         """Validate Numerals element properties."""
         # Validate system
         system = self.get_property("system", "arabic")
-        if system not in ["arabic", "roman", "custom"]:
-            raise ValueError("system must be 'arabic', 'roman', or 'custom'")
+        if system not in ["arabic", "roman", "custom", "none"]:
+            raise ValueError("system must be 'arabic', 'roman', 'custom', or 'none'")
 
         # Validate custom_list if system is custom
         if system == "custom":
             custom_list = self.get_property("custom_list")
             if custom_list is None:
                 raise ValueError("custom_list is required when system is 'custom'")
-            if not isinstance(custom_list, list) or len(custom_list) != 12:
-                raise ValueError("custom_list must be a list of 12 strings")
+            if not isinstance(custom_list, list):
+                raise ValueError("custom_list must be a list")
 
-        # Validate visible
+        # Validate values (for custom hour positions)
+        values = self.get_property("values")
+        if values is not None:
+            if not isinstance(values, list):
+                raise ValueError("values must be a list")
+            for val in values:
+                if not isinstance(val, int):
+                    raise ValueError("values must contain integers")
+
+        # Validate visible - now accepts any integers
         visible = self.get_property("visible")
         if visible is not None:
             if not isinstance(visible, list):
                 raise ValueError("visible must be a list")
             for num in visible:
-                if not isinstance(num, int) or num < 1 or num > 12:
-                    raise ValueError("visible must contain integers from 1 to 12")
+                if not isinstance(num, int):
+                    raise ValueError("visible must contain integers")
 
         # Validate font_size
         font_size = self.get_property("font_size", 12)
@@ -52,23 +61,45 @@ class Numerals(Element):
 
         # Validate orientation
         orientation = self.get_property("orientation", "upright")
-        if orientation not in ["upright", "radial"]:
-            raise ValueError("orientation must be 'upright' or 'radial'")
+        if orientation not in ["upright", "radial", "tangent"]:
+            raise ValueError("orientation must be 'upright', 'radial', or 'tangent'")
 
         # Validate flip
         flip = self.get_property("flip", "none")
-        if flip not in ["none", "horizontal", "vertical"]:
-            raise ValueError("flip must be 'none', 'horizontal', or 'vertical'")
+        if flip not in ["none", "horizontal", "vertical", "both"]:
+            raise ValueError("flip must be 'none', 'horizontal', 'vertical', or 'both'")
 
         # Validate rotation
         rotation = self.get_property("rotation", 0)
         if not isinstance(rotation, (int, float)):
             raise ValueError("rotation must be a number")
 
+        # Validate radius_offset
+        radius_offset = self.get_property("radius_offset", 0.0)
+        if not isinstance(radius_offset, (int, float)):
+            raise ValueError("radius_offset must be a number")
+
         # Validate font_path if provided
         font_path = self.get_property("font_path")
         if font_path is not None and not isinstance(font_path, str):
             raise ValueError("font_path must be a string")
+
+        # Validate positions (custom angles)
+        positions = self.get_property("positions")
+        if positions is not None:
+            if not isinstance(positions, list):
+                raise ValueError("positions must be a list")
+            for pos in positions:
+                if not isinstance(pos, (int, float)):
+                    raise ValueError(
+                        "positions must contain numbers (angles in degrees)"
+                    )
+
+        # Validate custom_map
+        custom_map = self.get_property("custom_map")
+        if custom_map is not None:
+            if not isinstance(custom_map, dict):
+                raise ValueError("custom_map must be a dictionary")
 
     def draw(
         self,
@@ -76,23 +107,33 @@ class Numerals(Element):
         draw: ImageDraw.ImageDraw,
         center: Tuple[float, float],
         radius: float,
+        scale_factor: float = 1.0,
     ) -> None:
         """Draw the numerals.
 
         Args:
             image: The PIL Image to draw on.
             draw: The PIL ImageDraw object for drawing operations.
-            center: The (x, y) center point of the clock face.
-            radius: The radius of the clock face.
+            center: The (x, y) center point of the clock face (already scaled).
+            radius: The radius of the clock face (already scaled).
+            scale_factor: Scale factor for custom element positioning.
         """
+        # Use element's own center and radius if specified
+        element_center = self.get_center(center, scale_factor)
+        element_radius = self.get_radius(radius, scale_factor)
+
         system = self.get_property("system", "arabic")
-        visible = self.get_property("visible", list(range(1, 13)))
+        values = self.get_property("values")
+        visible = self.get_property("visible")
         font_path = self.get_property("font_path")
         font_size = self.get_property("font_size", 12)
         color = parse_color(self.get_property("color", "black"))
         orientation = self.get_property("orientation", "upright")
         flip = self.get_property("flip", "none")
         rotation = self.get_property("rotation", 0)
+        radius_offset = self.get_property("radius_offset", 0.0)
+        positions = self.get_property("positions")
+        custom_map = self.get_property("custom_map")
 
         # Load font
         try:
@@ -107,48 +148,101 @@ class Numerals(Element):
 
                 font = ImageFont.load_default()
 
-        # Get numeral strings
-        numeral_strings = self._get_numeral_strings(system)
+        # Determine what to draw
+        if values:
+            # Use custom values
+            nums_to_draw = values
+        elif visible:
+            # Use visible list
+            nums_to_draw = visible
+        else:
+            # Default to 1-12
+            nums_to_draw = list(range(1, 13))
 
-        # Draw each visible numeral
-        for hour in visible:
-            if 1 <= hour <= 12:
-                text = numeral_strings[hour - 1]  # Convert to 0-based index
-                self._draw_numeral(
-                    draw,
-                    center,
-                    radius,
-                    hour,
-                    text,
-                    font,
-                    color,
-                    orientation,
-                    flip,
-                    rotation,
-                    image,
+        # Get numeral strings
+        numeral_strings = self._get_numeral_strings(system, len(nums_to_draw))
+
+        # Draw each numeral
+        for idx, num in enumerate(nums_to_draw):
+            # Get text from custom_map, or use numeral_strings
+            if custom_map and num in custom_map:
+                text = custom_map[num]
+            elif idx < len(numeral_strings):
+                text = numeral_strings[idx]
+            else:
+                text = str(num)
+
+            # Determine angle
+            if positions and idx < len(positions):
+                angle = positions[idx]
+            else:
+                # Default: evenly distribute around circle
+                angle = (
+                    (num % 12) * 30
+                    if len(nums_to_draw) <= 12
+                    else (360 / len(nums_to_draw)) * idx
                 )
 
-    def _get_numeral_strings(self, system: str) -> List[str]:
-        """Get the list of numeral strings for the given system."""
+            self._draw_numeral(
+                draw,
+                element_center,
+                element_radius,
+                angle,
+                text,
+                font,
+                color,
+                orientation,
+                flip,
+                rotation,
+                radius_offset,
+                image,
+            )
+
+    def _get_numeral_strings(self, system: str, count: int = 12) -> List[str]:
+        """Get the list of numeral strings for the given system.
+
+        Args:
+            system: The numeral system to use.
+            count: Number of numerals needed.
+
+        Returns:
+            List of numeral strings.
+        """
         if system == "arabic":
-            return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+            return [str(i) for i in range(1, count + 1)]
         elif system == "roman":
-            return [
-                "I",
-                "II",
-                "III",
-                "IV",
-                "V",
-                "VI",
-                "VII",
-                "VIII",
-                "IX",
-                "X",
-                "XI",
-                "XII",
-            ]
+            # Roman numerals up to 24
+            roman_map = {
+                1: "I",
+                2: "II",
+                3: "III",
+                4: "IV",
+                5: "V",
+                6: "VI",
+                7: "VII",
+                8: "VIII",
+                9: "IX",
+                10: "X",
+                11: "XI",
+                12: "XII",
+                13: "XIII",
+                14: "XIV",
+                15: "XV",
+                16: "XVI",
+                17: "XVII",
+                18: "XVIII",
+                19: "XIX",
+                20: "XX",
+                21: "XXI",
+                22: "XXII",
+                23: "XXIII",
+                24: "XXIV",
+            }
+            return [roman_map.get(i, str(i)) for i in range(1, min(count + 1, 25))]
         elif system == "custom":
             return self.get_property("custom_list", [])
+        elif system == "none":
+            return []
         else:
             raise ValueError(f"Unknown numeral system: {system}")
 
@@ -157,23 +251,27 @@ class Numerals(Element):
         draw: ImageDraw.ImageDraw,
         center: Tuple[float, float],
         radius: float,
-        hour: int,
+        angle: float,
         text: str,
         font: Any,
         color: Any,
         orientation: str,
         flip: str,
         rotation: float,
+        radius_offset: float,
         image: Image.Image = None,
     ) -> None:
-        """Draw a single numeral."""
-        # Calculate position angle - 12 should be at top (0°)
-        # Hour 12 -> 0°, Hour 1 -> 30°, Hour 2 -> 60°, etc.
-        angle = ((hour % 12) * 30) + rotation
+        """Draw a single numeral.
 
-        # Position at about 80% of radius from center
-        text_radius = radius * 0.8
-        text_center = point_on_circle(center, text_radius, angle)
+        Args:
+            angle: The angle in degrees (0 = top, clockwise).
+        """
+        # Apply rotation
+        final_angle = angle + rotation
+
+        # Position at adjustable radius from center (default 80%)
+        text_radius = radius * (0.8 + radius_offset)
+        text_center = point_on_circle(center, text_radius, final_angle)
 
         # Apply text flipping
         display_text = self._apply_flip(text, flip)
@@ -191,10 +289,10 @@ class Numerals(Element):
             # Draw text upright
             draw.text((text_x, text_y), display_text, fill=color, font=font)
 
-        elif orientation == "radial":
+        elif orientation in ["radial", "tangent"]:
             # Draw text rotated to match radial position
             # Create a temporary image for the rotated text
-            temp_size = max(text_width, text_height) * 2
+            temp_size = max(text_width, text_height) * 3
             temp_image = Image.new(
                 "RGBA", (int(temp_size), int(temp_size)), (0, 0, 0, 0)
             )
@@ -206,7 +304,11 @@ class Numerals(Element):
             temp_draw.text((temp_x, temp_y), display_text, fill=color, font=font)
 
             # Rotate the temp image
-            rotated = temp_image.rotate(angle, expand=True)
+            # For tangent, add 90 degrees
+            rotation_angle = (
+                final_angle if orientation == "radial" else final_angle + 90
+            )
+            rotated = temp_image.rotate(-rotation_angle, expand=True)
 
             # Calculate position to paste rotated text
             paste_x = int(text_center[0] - rotated.width / 2)
@@ -234,17 +336,22 @@ class Numerals(Element):
                 "0": "0",
                 "1": "1",
                 "2": "2",
-                "3": "3",
+                "3": "Ɛ",
                 "4": "4",
-                "5": "5",
+                "5": "S",
                 "6": "9",
-                "7": "7",
+                "7": "L",
                 "8": "8",
                 "9": "6",
                 "I": "I",
-                "V": "V",
+                "V": "Ʌ",
                 "X": "X",
             }
             return "".join(flip_map.get(c, c) for c in text[::-1])
+        elif flip == "both":
+            # Apply both horizontal and vertical
+            text = self._apply_flip(text, "horizontal")
+            text = self._apply_flip(text, "vertical")
+            return text
         else:
             return text

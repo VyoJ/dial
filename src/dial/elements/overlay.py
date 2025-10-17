@@ -79,35 +79,58 @@ class Overlay(Element):
         draw: ImageDraw.ImageDraw,
         center: Tuple[float, float],
         radius: float,
+        scale_factor: float = 1.0,
     ) -> None:
         """Draw the overlay element.
 
         Args:
             image: The PIL Image to draw on.
             draw: The PIL ImageDraw object for drawing operations.
-            center: The (x, y) center point of the clock face.
-            radius: The radius of the clock face.
+            center: The (x, y) center point of the clock face (already scaled).
+            radius: The radius of the clock face (already scaled).
+            scale_factor: Scale factor for custom element positioning.
         """
         overlay_type = self.get_property("type")
 
         if overlay_type == "date_window":
-            self._draw_date_window(draw, center, radius)
+            self._draw_date_window(draw, center, radius, scale_factor)
         else:
             print(f"Warning: Unknown overlay type: {overlay_type}")
 
     def _draw_date_window(
-        self, draw: ImageDraw.ImageDraw, center: Tuple[float, float], radius: float
+        self,
+        draw: ImageDraw.ImageDraw,
+        center: Tuple[float, float],
+        radius: float,
+        scale_factor: float = 1.0,
     ) -> None:
         """Draw a date window overlay."""
         # Get properties with defaults
         date_str = self.get_property("date")
-        position = self.get_property("position", (center[0], center[1] + radius * 0.3))
+
+        # Get custom position or use default (below center)
+        custom_position = self.get_property("position")
+        if custom_position is not None:
+            # Scale custom position
+            position = (
+                custom_position[0] * scale_factor,
+                custom_position[1] * scale_factor,
+            )
+        else:
+            # Use default position relative to center (already scaled)
+            position = (center[0], center[1] + radius * 0.3)
+
         font_path = self.get_property("font_path")
         font_size = self.get_property("font_size", 14)
+        # Scale font size
+        scaled_font_size = int(font_size * scale_factor)
+
         text_color = parse_color(self.get_property("text_color", "black"))
         background_color = self.get_property("background_color")
         border_color = self.get_property("border_color")
         padding = self.get_property("padding", 4)
+        # Scale padding
+        scaled_padding = padding * scale_factor
 
         # Determine date text
         if date_str:
@@ -120,13 +143,13 @@ class Overlay(Element):
             # Use current date
             date_text = str(datetime.now().day)
 
-        # Load font
+        # Load font (using scaled font size)
         try:
-            font = load_font(font_path, int(font_size))
+            font = load_font(font_path, scaled_font_size)
         except Exception as e:
             print(f"Warning: Failed to load font for overlay, using default: {e}")
             try:
-                font = load_font(None, int(font_size))
+                font = load_font(None, scaled_font_size)
             except Exception:
                 from PIL import ImageFont
 
@@ -137,9 +160,9 @@ class Overlay(Element):
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
 
-        # Calculate window size with padding
-        window_width = text_width + 2 * padding
-        window_height = text_height + 2 * padding
+        # Calculate window size with padding (using scaled padding)
+        window_width = text_width + 2 * scaled_padding
+        window_height = text_height + 2 * scaled_padding
 
         # Calculate window position (centered on given position)
         window_x = position[0] - window_width / 2
@@ -161,9 +184,11 @@ class Overlay(Element):
         # Draw border if specified
         if border_color:
             border_col = parse_color(border_color)
-            draw.rectangle(window_bbox, outline=border_col, width=1)
+            # Scale border width too
+            border_width = max(1, int(1 * scale_factor))
+            draw.rectangle(window_bbox, outline=border_col, width=border_width)
 
-        # Draw text
-        text_x = window_x + padding
-        text_y = window_y + padding
+        # Draw text (using scaled padding)
+        text_x = window_x + scaled_padding
+        text_y = window_y + scaled_padding
         draw.text((text_x, text_y), date_text, fill=text_color, font=font)

@@ -185,4 +185,218 @@ clock = dial.Clock.from_config(config)
 clock.save("complex_clock.png")
 ```
 
-![Complex Configuration](agent_complex.png)
+## Advanced Features
+
+### Chronograph with Sub-Dials
+
+Create multi-dial watch designs with custom positioning:
+
+```python
+config = {
+    "width": 600,
+    "height": 600,
+    "elements": [
+        # Main clock face
+        {"type": "Face", "properties": {
+            "shape": "circle",
+            "color": "white",
+            "border_color": "black",
+            "border_width": 3
+        }},
+        {"type": "Ticks", "properties": {
+            "hour_spec": {"shape": "line", "color": "black", "length": 0.08, "width": 2}
+        }},
+        {"type": "Numerals", "properties": {
+            "system": "arabic",
+            "color": "black",
+            "font_size": 28
+        }},
+        {"type": "Hands", "properties": {
+            "time": "10:10:30",
+            "hour_spec": {"color": "black", "length": 0.5, "width": 8},
+            "minute_spec": {"color": "black", "length": 0.8, "width": 6}
+        }},
+        
+        # Sub-dial at top-left
+        {"type": "Face", "properties": {
+            "center": [200, 200],
+            "radius": 60,
+            "color": "#e6f3ff",
+            "border_color": "navy",
+            "border_width": 2
+        }},
+        {"type": "Hands", "properties": {
+            "center": [200, 200],
+            "radius": 60,
+            "time": "3:00:00",
+            "hour_spec": {"color": "navy", "length": 0.5, "width": 3}
+        }},
+        
+        # Sub-dial at bottom-right
+        {"type": "Face", "properties": {
+            "center": [400, 400],
+            "radius": 60,
+            "color": "#ffe6e6",
+            "border_color": "darkred",
+            "border_width": 2
+        }},
+        {"type": "Hands", "properties": {
+            "center": [400, 400],
+            "radius": 60,
+            "time": "9:00:00",
+            "hour_spec": {"color": "darkred", "length": 0.5, "width": 3}
+        }}
+    ]
+}
+```
+
+### 24-Hour Clock
+
+Full 24-hour time display with proper hand movement:
+
+```python
+config = {
+    "width": 500,
+    "height": 500,
+    "elements": [
+        {"type": "Face", "properties": {"shape": "circle", "color": "white"}},
+        
+        # 24 hour divisions
+        {"type": "Ticks", "properties": {
+            "divisions": 24,
+            "hour_spec": {"shape": "line", "color": "black", "length": 0.06, "width": 2}
+        }},
+        
+        # Show 13-24 numerals
+        {"type": "Numerals", "properties": {
+            "system": "arabic",
+            "values": [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
+            "color": "black",
+            "font_size": 20
+        }},
+        
+        # Hands in 24-hour mode
+        {"type": "Hands", "properties": {
+            "time": "18:30:00",
+            "mode": "24h",
+            "hour_spec": {"color": "black", "length": 0.5, "width": 8},
+            "minute_spec": {"color": "black", "length": 0.8, "width": 6}
+        }}
+    ]
+}
+```
+
+### Dual Numeral Rings
+
+Create complex layouts with radius_offset:
+
+```python
+config = {
+    "width": 500,
+    "height": 500,
+    "elements": [
+        {"type": "Face", "properties": {"shape": "circle", "color": "white"}},
+        
+        # Outer ring: hours
+        {"type": "Numerals", "properties": {
+            "system": "arabic",
+            "values": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            "radius_offset": 0.0,
+            "color": "black",
+            "font_size": 24
+        }},
+        
+        # Inner ring: minutes
+        {"type": "Numerals", "properties": {
+            "system": "arabic",
+            "values": [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60],
+            "radius_offset": -0.3,
+            "color": "#666",
+            "font_size": 16
+        }},
+        
+        {"type": "Hands", "properties": {"time": "3:15:00"}}
+    ]
+}
+```
+
+### Image Post-Processing
+
+Apply transformations to final rendered image:
+
+```python
+config = {
+    "width": 500,
+    "height": 500,
+    "post_processing": {
+        "flip_horizontal": True,  # Mirror the image
+        "rotate": 45,             # Rotate 45 degrees
+    },
+    "elements": [
+        {"type": "Face", "properties": {"shape": "circle", "color": "white"}},
+        {"type": "Numerals", "properties": {"system": "arabic"}},
+        {"type": "Hands", "properties": {"time": "3:15:30"}}
+    ]
+}
+```
+
+### Gradient Backgrounds
+
+Create stunning gradient faces:
+
+```python
+# Radial gradient
+{"type": "Face", "properties": {
+    "shape": "circle",
+    "color": {
+        "type": "radial",
+        "colors": ["#FF69B4", "#9370DB", "#1E3A8A"],
+        "center": [0.5, 0.5]
+    }
+}}
+
+# Linear gradient
+{"type": "Face", "properties": {
+    "shape": "circle",
+    "color": {
+        "type": "linear",
+        "colors": ["#87CEEB", "#1E3A8A"],
+        "angle": 45
+    }
+}}
+```
+
+### Multiple Date Windows
+
+Position multiple overlays independently:
+
+```python
+config = {
+    "width": 600,
+    "height": 600,
+    "elements": [
+        {"type": "Face", "properties": {"shape": "circle", "color": "#f5f5f5"}},
+        {"type": "Numerals", "properties": {"system": "arabic", "visible": [12, 3, 6, 9]}},
+        
+        # Date at 3 o'clock
+        {"type": "Overlay", "properties": {
+            "type": "date_window",
+            "position": [450, 300],
+            "date": "2025-10-18",
+            "text_color": "blue",
+            "border_color": "blue"
+        }},
+        
+        # Date at 6 o'clock
+        {"type": "Overlay", "properties": {
+            "type": "date_window",
+            "position": [300, 420],
+            "date": "2025-10-18",
+            "text_color": "red",
+            "border_color": "red"
+        }},
+        
+        {"type": "Hands", "properties": {"time": "3:45:30"}}
+    ]
+}
+```

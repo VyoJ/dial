@@ -22,6 +22,44 @@ class Element(ABC):
         self.properties = properties
         self._validate_properties()
 
+    def get_center(
+        self, default_center: tuple[float, float], scale_factor: float = 1.0
+    ) -> tuple[float, float]:
+        """Get the center position for this element.
+
+        Args:
+            default_center: Default center position (usually canvas center, already scaled).
+            scale_factor: Scale factor to apply to custom center values (default 1.0).
+
+        Returns:
+            The center position as (x, y) tuple.
+        """
+        center = self.get_property("center")
+        if center is None:
+            return default_center
+        if not isinstance(center, (list, tuple)) or len(center) != 2:
+            raise ValueError("center must be a (x, y) tuple or list")
+        # Scale custom center coordinates
+        return (float(center[0]) * scale_factor, float(center[1]) * scale_factor)
+
+    def get_radius(self, default_radius: float, scale_factor: float = 1.0) -> float:
+        """Get the radius for this element.
+
+        Args:
+            default_radius: Default radius (usually calculated from canvas, already scaled).
+            scale_factor: Scale factor to apply to custom radius values (default 1.0).
+
+        Returns:
+            The radius as a float.
+        """
+        radius = self.get_property("radius")
+        if radius is None:
+            return default_radius
+        if not isinstance(radius, (int, float)) or radius <= 0:
+            raise ValueError("radius must be a positive number")
+        # Scale custom radius
+        return float(radius) * scale_factor
+
     @property
     @abstractmethod
     def z_order(self) -> int:
@@ -38,14 +76,16 @@ class Element(ABC):
         draw: ImageDraw.ImageDraw,
         center: tuple[float, float],
         radius: float,
+        scale_factor: float = 1.0,
     ) -> None:
         """Draw the element onto the image.
 
         Args:
             image: The PIL Image to draw on.
             draw: The PIL ImageDraw object for drawing operations.
-            center: The (x, y) center point of the clock face.
-            radius: The radius of the clock face.
+            center: The (x, y) center point of the clock face (already scaled).
+            radius: The radius of the clock face (already scaled).
+            scale_factor: Scale factor for custom element positioning (default 1.0).
         """
         pass
 

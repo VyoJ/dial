@@ -336,7 +336,7 @@ def validate_time_format(time_str: str) -> Tuple[int, int, int]:
 
 
 def time_to_angles(
-    hours: int, minutes: int, seconds: int
+    hours: int, minutes: int, seconds: int, mode_24h: bool = False
 ) -> Tuple[float, float, float]:
     """Convert time to clock hand angles.
 
@@ -344,16 +344,22 @@ def time_to_angles(
         hours: Hours (0-23).
         minutes: Minutes (0-59).
         seconds: Seconds (0-59).
+        mode_24h: If True, hour hand completes full rotation in 24 hours.
 
     Returns:
         Tuple of (hour_angle, minute_angle, second_angle) in degrees.
     """
-    # Convert 24-hour to 12-hour
-    hours = hours % 12
-
     # Calculate angles (0 degrees = 12 o'clock, clockwise)
     second_angle = seconds * 6  # 360 / 60
     minute_angle = minutes * 6 + seconds * 0.1  # Include seconds for smooth movement
-    hour_angle = hours * 30 + minutes * 0.5  # 360 / 12, include minutes
+
+    if mode_24h:
+        # Hour hand completes 360° in 24 hours
+        hour_angle = hours * 15 + minutes * 0.25  # 360 / 24, include minutes
+    else:
+        # Convert 24-hour to 12-hour
+        hours = hours % 12
+        # Hour hand completes 360° in 12 hours
+        hour_angle = hours * 30 + minutes * 0.5  # 360 / 12, include minutes
 
     return (hour_angle, minute_angle, second_angle)

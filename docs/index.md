@@ -1,12 +1,28 @@
-# Dial - Analog Clock Face Generator
+# Dial - Documentation
 
-A Python library for procedural and declarative generation of analog clock faces, designed to be both human-friendly and AI/LLM-friendly.
+Welcome to the Dial library documentation!
+
+## Overview
+
+Dial is a Python library for procedural and declarative generation of analog clock faces. It provides both a simple preset-based interface for quick clock creation and a powerful configuration-based interface for complex, custom designs.
+
+## Documentation Sections
+
+### [Usage Guide](usage.md)
+Complete usage guide covering both human-friendly and agent-friendly interfaces, with examples of basic and advanced features.
+
+### [API Reference](api.md)
+Detailed API documentation for all classes, methods, and configuration options.
+
+### [Architecture](architecture.md)
+Design philosophy, compositional architecture, and guidance for LLM/AI agent integration.
+
+### [Examples](examples.md)
+Gallery of example configurations demonstrating various clock designs and features.
 
 ## Quick Start
 
-### Human-Friendly Interface
-
-Perfect for quick clock creation with sensible defaults:
+### Simple Clock Creation
 
 ```python
 import dial
@@ -16,19 +32,18 @@ clock = dial.Clock.create("3:15:30", "classic")
 clock.save("my_clock.png")
 ```
 
-### Agent-Friendly Interface
-
-Full configuration control for complex designs:
+### Complex Configuration
 
 ```python
 import dial
 
 config = {
-    "width": 400,
-    "height": 400,
+    "width": 600,
+    "height": 600,
     "elements": [
         {"type": "Face", "properties": {"shape": "circle", "color": "white"}},
-        {"type": "Hands", "properties": {"time": "3:15:30"}}
+        {"type": "Numerals", "properties": {"system": "roman"}},
+        {"type": "Hands", "properties": {"time": "10:10:30"}}
     ]
 }
 
@@ -36,15 +51,18 @@ clock = dial.Clock.from_config(config)
 clock.save("custom_clock.png")
 ```
 
-## Features
+## Key Features
 
-- **Dual Interface**: Simple presets for humans, full configuration for AI agents
+- **Dual Interface**: Simple presets and full configuration control
 - **High Quality**: Built-in antialiasing and supersampling
-- **Compositional**: Layer-based architecture with customizable elements
-- **Accurate**: Precise hand positioning with smooth movement
-- **Flexible**: Support for gradients, custom fonts, multiple numeral systems
+- **Compositional**: Layer-based architecture with independent elements
+- **Advanced Positioning**: Custom center/radius for sub-dials and chronographs
+- **24-Hour Support**: Full 24-hour time display capabilities
+- **Image Operations**: Post-processing transformations (flip, rotate)
+- **Date Windows**: Overlay text and date displays
+- **Gradients**: Radial and linear gradient backgrounds
 
-## Available Preset Styles
+## Available Styles
 
 - `classic` - Traditional black-on-white design
 - `modern` - Dark theme with contemporary styling
